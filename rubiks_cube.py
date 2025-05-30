@@ -61,7 +61,7 @@ while True:
     redthresh = 200
     bluethresh = 150
     greenthresh = 230
-    whitethresh = 200 #(255, 255, 255)
+    whitethresh = 150 #(255, 255, 255)
     orangethresh, orangethresh1 = 230, 140  #(255, 165, 0)
     yellowthresh = 180 #(255, 255, 0)
 
