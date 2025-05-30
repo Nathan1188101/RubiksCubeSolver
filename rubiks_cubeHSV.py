@@ -52,42 +52,49 @@ while True:
     flipped_frame = cv.flip(frame, 1)
     frame = flipped_frame 
 
+    #this converts my "main" frame
+    #frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV) #converting the frame to HSV for better color tracking 
+
+    #having a variable of HSV conversion serperatley 
+    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
 
     #NEXT WORK GOES IN HERE 
     #----------------------
 
-    """
-    ok I think I'll need to make a filter for each color of the cube so lets start with that 
-    """
-    redthresh = 200
-    bluethresh = 150
-    greenthresh = 230
-    whitethresh = 150 #(255, 255, 255)
-    orangethresh, orangethresh1 = 230, 140  #(255, 165, 0)
-    yellowthresh = 180 #(255, 255, 0)
+    #HSV COLOR RANGES 
+    # Red (two ranges)
+    lower_red1 = np.array([0, 100, 100])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([160, 100, 100])
+    upper_red2 = np.array([180, 255, 255])
 
-    #------------MASKS------------ 
-    #REMEMBER: channels - 0 = blue   |  1 = green   |  2 = red  (it's flipped, BGR)
-    red = (frame[:, :, 0] <= 100) & (frame[:, :, 1] <= 100) & (frame[:, :, 2] > redthresh) 
-    blue = (frame[:, :, 0] > bluethresh) & (frame[:, :, 1] <= 100) & (frame[:, :, 2] <= 100) 
-    green = (frame[:, :, 0] <= 0) & (frame[:, :, 1] > greenthresh) & (frame[:, :, 2] <= 0) 
-    white = (frame[:, :, 0] > whitethresh) & (frame[:, :, 1] > whitethresh) & (frame[:, :, 2] > whitethresh) 
-    orange = (frame[:, :, 0] <= 0) & (frame[:, :, 1] > orangethresh1 ) & (frame[:, :, 1] < 190) & (frame[:, :, 2] > orangethresh) 
-    yellow = (frame[:, :, 0] <= 100) & (frame[:, :, 1] > yellowthresh) & (frame[:, :, 2] > yellowthresh) 
+    # Blue
+    lower_blue = np.array([100, 100, 100])
+    upper_blue = np.array([130, 255, 255])
 
+    # Green
+    lower_green = np.array([40, 100, 100])
+    upper_green = np.array([85, 255, 255])
 
-    #moved this lower I don't think it's an issue but will leave this here INCASE 
-    # #set pixels for better contours 
-    # frame[blue] = [255, 0, 0] #setting blue pixels to blue 
+    # Orange
+    lower_orange = np.array([10, 100, 100])
+    upper_orange = np.array([25, 255, 255])
 
+    # Yellow
+    lower_yellow = np.array([25, 100, 100])
+    upper_yellow = np.array([35, 255, 255])
 
-    #now I think I have to do conversions for all these as they are returning boolean NumPy arrays atm
-    red_mask = red.astype(np.uint8) * 255 
-    blue_mask = blue.astype(np.uint8) * 255 
-    green_mask = green.astype(np.uint8) * 255
-    white_mask = white.astype(np.uint8) * 255
-    orange_mask = orange.astype(np.uint8) * 255
-    yellow_mask = yellow.astype(np.uint8) * 255
+    # White
+    lower_white = np.array([0, 0, 200])
+    upper_white = np.array([180, 50, 255])
+
+    #MASKS 
+    red_mask = cv.inRange(hsv, lower_red1, upper_red1) | cv.inRange(hsv, lower_red2, upper_red2)
+    blue_mask = cv.inRange(hsv, lower_blue, upper_blue)
+    green_mask = cv.inRange(hsv, lower_green, upper_green)
+    orange_mask = cv.inRange(hsv, lower_orange, upper_orange)
+    yellow_mask = cv.inRange(hsv, lower_yellow, upper_yellow)
+    white_mask = cv.inRange(hsv, lower_white, upper_white)
 
     #now that we have converted we should be able to detect contours 
     redContours, _ = cv.findContours(red_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
@@ -98,12 +105,8 @@ while True:
     yellowContours, _ = cv.findContours(yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
     #debug 
-    # redpixels = red.sum()
-    # print("red: ", redpixels)
-    # bluepixels = blue.sum()
-    # print("blue: ", bluepixels)
-    yellowpixels = yellow.sum()
-    print("yellow: ", yellowpixels)
+    red_pixels = np.count_nonzero(red_mask)
+    print("red: ", red_pixels)
 
     """
     ok the below is actually helping me in a way I didn't expect, since we are turning the pixels that fall 
@@ -116,10 +119,10 @@ while True:
     it seems light is definitley one of the bigger issues here (I've been testing in nanny and poppas basement with minimal light)
     """
     #set pixels so I can see visually what's getting picked up. 
-    frame[blue] = [255, 0, 0] 
-    frame[red] = [0, 0, 255]
-    frame[yellow] = [0, 255, 255]
-    frame[white] = [255, 255, 255]
+    # frame[blue] = [255, 0, 0] 
+    # frame[red] = [0, 0, 255]
+    # frame[yellow] = [0, 255, 255]
+    # frame[white] = [255, 255, 255]
 
     #NEED TO ORGANIZE THIS STUFF BETTER THE CONTINUITY OF MY IDEAS IS GOING TO BE HARD TO COME BACK TO AND READ I'M ALL OVER THE PLACE 
     #now we should be able to loop through and begin calculations and drawing for tracking 
@@ -153,25 +156,6 @@ while True:
             x, y, w, h = cv.boundingRect(contour)
             cv.rectangle(frame, (x, y), (x + w, y + h), (0,255,0), 2)
 
-    """
-    ok I'm not sure what the exact reason is yet, but finding the center of the things I'm trying to track, or at least the bounding
-    box itself is just not getting put around the objects I hold up
-        now this could be because of a number of factors like my area condition, lighting irl, the objects I'm using to test
-        are just not good for this, etc. 
-
-    either way I had an idea. What if when we got the color we need we overlaid it with a solid blue color for instance, then it
-    would stand out more and be easier to track the contours... maybe?? 
-
-    because when putting the bounding box around the black pixels before they seemed pretty good at getting around the area 
-    of black pixels. They were "off centered" or not around the black pixels, they were more accurate (seemingly)
-
-    so this could be a good try at least. 
-
-    steps: 
-        - get the target color
-        - replace it with a bolder color 
-        - put contours around that 
-    """
 
 
 
